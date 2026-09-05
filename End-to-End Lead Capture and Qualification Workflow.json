@@ -1,0 +1,1005 @@
+{
+  "name": "End-to-End Lead Capture and Qualification Workflow",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "lead-capture",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "537d4c67-67d4-482d-9e10-ce05a816bb78",
+      "name": "Lead Capture Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        -2448,
+        304
+      ],
+      "webhookId": "2df142e1-9593-4b1f-8f06-b0a9011559bc"
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\n\nconst freeEmailDomains = ['gmail.com','yahoo.com','yahoo.co.in','hotmail.com','outlook.com','aol.com','icloud.com','protonmail.com','rediffmail.com'];\n\nreturn items.map(item => {\n  const raw = item.json.body || item.json;\n\n  const name = (raw.name || '').toString().trim();\n  const email = (raw.email || '').toString().trim().toLowerCase();\n  const phone = (raw.phone || '').toString().trim();\n  const company = (raw.company || '').toString().trim();\n  const budget = Number(raw.budget) || 0;\n  const source = (raw.source || '').toString().trim();\n\n  const errors = [];\n  const emailRegex = /^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/;\n\n  if (!name) errors.push('Missing name');\n  if (!email || !emailRegex.test(email)) errors.push('Missing or invalid email');\n  if (!phone) errors.push('Missing phone');\n  if (!source) errors.push('Missing source');\n\n  const domain = email.includes('@') ? email.split('@')[1] : '';\n  const isCorporateEmail = !!domain && !freeEmailDomains.includes(domain);\n  const isDataComplete = !!(name && email && phone && company && source);\n\n  return {\n    json: {\n      name, email, phone, company, budget, source, domain,\n      isCorporateEmail,\n      isDataComplete,\n      isValid: errors.length === 0,\n      validationErrors: errors,\n      submittedAt: new Date().toISOString()\n    }\n  };\n});"
+      },
+      "id": "d67eca75-a69c-48f5-8c27-7b7aac052f2a",
+      "name": "Validate & Clean Data",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -2208,
+        304
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
+          },
+          "combinator": "and",
+          "conditions": [
+            {
+              "id": "cond-valid",
+              "leftValue": "={{$json.isValid}}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "c9a4ecf9-89c4-4330-92a9-5232593774e8",
+      "name": "Is Valid?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        -1968,
+        304
+      ]
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "1f4wfcAWnOzTPdQPfmN6x5wfRV_oqoW5fW_vcjVc4zqs",
+          "mode": "list",
+          "cachedResultName": "Lead Capture and Qualification",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1f4wfcAWnOzTPdQPfmN6x5wfRV_oqoW5fW_vcjVc4zqs/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Leads Master Log",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1f4wfcAWnOzTPdQPfmN6x5wfRV_oqoW5fW_vcjVc4zqs/edit#gid=0"
+        },
+        "filtersUI": {
+          "values": [
+            {
+              "lookupColumn": "Email",
+              "lookupValue": "={{$json.email}}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "b614a434-7018-4344-8a38-601e3b30dcde",
+      "name": "Lookup Existing Lead",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "alwaysOutputData": true,
+      "position": [
+        -1728,
+        208
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "g8JBUjsXc1wTuKMP",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const originalLead = $('Validate & Clean Data').first().json;\nconst lookupResults = $input.all().filter(item => item.json && item.json.Email);\n\nreturn [{\n  json: {\n    ...originalLead,\n    isDuplicate: lookupResults.length > 0\n  }\n}];"
+      },
+      "id": "8ecd4672-2b4d-462a-8a72-94b1c6cf67af",
+      "name": "Check Duplicate",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1488,
+        208
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
+          },
+          "combinator": "and",
+          "conditions": [
+            {
+              "id": "cond-dup",
+              "leftValue": "={{$json.isDuplicate}}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "1ee97e7e-4dbd-4406-a60b-6eb14d77920b",
+      "name": "Is Duplicate?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        -1248,
+        208
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const lead = $('Check Duplicate').first().json;\n\nlet aiScore = 5;\nlet aiNotes = '';\ntry {\n  const aiItem = $input.first();\n  const aiText = (aiItem.json.message && aiItem.json.message.content) || aiItem.json.text || '';\n  const match = String(aiText).match(/\\d+/);\n  aiScore = match ? Math.min(10, Math.max(1, parseInt(match[0]))) : 5;\n  aiNotes = String(aiText).slice(0, 200);\n} catch (e) {\n  aiScore = 5;\n  aiNotes = 'AI scoring unavailable';\n}\n\nconst highBudget = lead.budget >= 50000;\nconst mediumBudget = lead.budget >= 15000 && lead.budget < 50000;\n\nlet tier = 'Cold';\nif (highBudget && lead.isCorporateEmail) {\n  tier = 'Hot';\n} else if ((mediumBudget || !lead.isCorporateEmail) && lead.isDataComplete && aiScore >= 4) {\n  tier = 'Warm';\n} else {\n  tier = 'Cold';\n}\n\nreturn [{\n  json: {\n    ...lead,\n    aiIntentScore: aiScore,\n    aiNotes,\n    tier\n  }\n}];"
+      },
+      "id": "7d8b1689-9430-4b40-933e-3e38d9370ef9",
+      "name": "Classify Lead Tier",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -768,
+        112
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "1f4wfcAWnOzTPdQPfmN6x5wfRV_oqoW5fW_vcjVc4zqs",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Leads Master Log",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1f4wfcAWnOzTPdQPfmN6x5wfRV_oqoW5fW_vcjVc4zqs/edit#gid=0"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Name": "={{$json.name}}",
+            "Email": "={{$json.email}}",
+            "Phone": "={{$json.phone}}",
+            "Company": "={{$json.company}}",
+            "Budget": "={{$json.budget}}",
+            "Source": "={{$json.source}}",
+            "Tier": "={{$json.tier}}",
+            "AI Intent Score": "={{$json.aiIntentScore}}",
+            "Timestamp": "={{$json.submittedAt}}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "Name",
+              "displayName": "Name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Email",
+              "displayName": "Email",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Phone",
+              "displayName": "Phone",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Company",
+              "displayName": "Company",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Budget",
+              "displayName": "Budget",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Source",
+              "displayName": "Source",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Tier",
+              "displayName": "Tier",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "AI Intent Score",
+              "displayName": "AI Intent Score",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Timestamp",
+              "displayName": "Timestamp",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "id": "e66c350a-df80-4a88-87d4-cb0bd73b2c29",
+      "name": "Append to Master Log",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        -528,
+        112
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "g8JBUjsXc1wTuKMP",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
+          },
+          "combinator": "and",
+          "conditions": [
+            {
+              "id": "cond-hot",
+              "leftValue": "={{$json.tier}}",
+              "rightValue": "Hot",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "bf32c0b3-4c29-4bb9-b60d-bea6d79b0a1a",
+      "name": "Is Hot Lead?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        -256,
+        112
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
+          },
+          "combinator": "and",
+          "conditions": [
+            {
+              "id": "cond-warm",
+              "leftValue": "={{$json.tier}}",
+              "rightValue": "Warm",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "7881e2ee-7bcd-48ca-8fa3-50da0cd3156c",
+      "name": "Is Warm Lead?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        -256,
+        320
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { \"status\": \"error\", \"message\": \"Lead validation failed\", \"errors\": $json.validationErrors } }}",
+        "options": {
+          "responseCode": 400
+        }
+      },
+      "id": "6121716b-8bbf-46bb-9d16-1283b8d16748",
+      "name": "Respond Invalid",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        -1728,
+        512
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { \"status\": \"duplicate\", \"message\": \"Lead with this email already exists\", \"email\": $json.email } }}",
+        "options": {
+          "responseCode": 409
+        }
+      },
+      "id": "d3d28288-bc33-4b8b-ac10-dd7b745455eb",
+      "name": "Respond Duplicate",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        -1376,
+        528
+      ]
+    },
+    {
+      "parameters": {
+        "fromEmail": "v9038230@gmail.com",
+        "toEmail": "v9038230@gmail.com",
+        "subject": "=🔥 Hot Lead: {{$json.name}} from {{$json.company}}",
+        "html": "=<h2>🔥 New Hot Lead</h2>\n\n<p><strong>Name:</strong> {{$json.name}}</p>\n<p><strong>Email:</strong> {{$json.email}}</p>\n<p><strong>Phone:</strong> {{$json.phone}}</p>\n<p><strong>Company:</strong> {{$json.company}}</p>\n<p><strong>Budget:</strong> {{$json.budget}}</p>\n<p><strong>Source:</strong> {{$json.source}}</p>\n\n<hr>\n\n<p><strong>Lead Tier:</strong> {{$json.tier}}</p>\n<p><strong>AI Intent Score:</strong> {{$json.aiIntentScore}}</p>",
+        "options": {}
+      },
+      "id": "0457d46b-52e3-4714-a792-8272e15cfad1",
+      "name": "Send Email to Sales",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [
+        0,
+        0
+      ],
+      "webhookId": "bb056f37-c51b-41c6-ae28-32bf104cef15",
+      "credentials": {
+        "smtp": {
+          "id": "k4F5QtTdcRwXorbm",
+          "name": "SMTP account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "authentication": "oAuth2",
+        "select": "channel",
+        "channelId": {
+          "__rl": true,
+          "value": "#sales-hot-leads",
+          "mode": "name"
+        },
+        "text": "=🔥 *Hot Lead Alert*\n*Name:* {{$json.name}}\n*Company:* {{$json.company}}\n*Budget:* {{$json.budget}}\n*Email:* {{$json.email}}\n*AI Score:* {{$json.aiIntentScore}}/10",
+        "otherOptions": {}
+      },
+      "id": "e9b33b3b-7426-49b7-a2f8-8eca9a66da04",
+      "name": "Slack Notify Sales",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.2,
+      "position": [
+        272,
+        0
+      ],
+      "webhookId": "584a0dd1-5b62-4fd2-9d9d-09ae3ebffb6b",
+      "credentials": {
+        "slackOAuth2Api": {
+          "id": "gpmGnPXww7JHoFV7",
+          "name": "Slack account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "1f4wfcAWnOzTPdQPfmN6x5wfRV_oqoW5fW_vcjVc4zqs",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 1001,
+          "mode": "list",
+          "cachedResultName": "Follow-up Queue",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1f4wfcAWnOzTPdQPfmN6x5wfRV_oqoW5fW_vcjVc4zqs/edit#gid=1001"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Name": "={{$json.name}}",
+            "Email": "={{$json.email}}",
+            "Phone": "={{$json.phone}}",
+            "Company": "={{$json.company}}",
+            "Budget": "={{$json.budget}}",
+            "Source": "={{$json.source}}",
+            "AI Intent Score": "={{$json.aiIntentScore}}",
+            "Timestamp": "={{$json.submittedAt}}",
+            "Follow-up Status": "Pending"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "Name",
+              "displayName": "Name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Email",
+              "displayName": "Email",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Phone",
+              "displayName": "Phone",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Company",
+              "displayName": "Company",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Budget",
+              "displayName": "Budget",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Source",
+              "displayName": "Source",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "AI Intent Score",
+              "displayName": "AI Intent Score",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Timestamp",
+              "displayName": "Timestamp",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Follow-up Status",
+              "displayName": "Follow-up Status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "id": "824c86e5-2122-4e26-bd95-2e715f01d2c0",
+      "name": "Append to Follow-up Queue",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        0,
+        272
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "g8JBUjsXc1wTuKMP",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "1f4wfcAWnOzTPdQPfmN6x5wfRV_oqoW5fW_vcjVc4zqs",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 1002,
+          "mode": "list",
+          "cachedResultName": "Archive",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1f4wfcAWnOzTPdQPfmN6x5wfRV_oqoW5fW_vcjVc4zqs/edit#gid=1002"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Name": "={{$json.name}}",
+            "Email": "={{$json.email}}",
+            "Phone": "={{$json.phone}}",
+            "Company": "={{$json.company}}",
+            "Budget": "={{$json.budget}}",
+            "Source": "={{$json.source}}",
+            "Reason": "={{$json.isDataComplete ? 'Low budget / personal email' : 'Incomplete data'}}",
+            "Timestamp": "={{$json.submittedAt}}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "Name",
+              "displayName": "Name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Email",
+              "displayName": "Email",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Phone",
+              "displayName": "Phone",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Company",
+              "displayName": "Company",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Budget",
+              "displayName": "Budget",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Source",
+              "displayName": "Source",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Reason",
+              "displayName": "Reason",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Timestamp",
+              "displayName": "Timestamp",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "id": "d1f89055-2a08-4cdb-931d-18bafdbda4be",
+      "name": "Append to Archive",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        0,
+        464
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "g8JBUjsXc1wTuKMP",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { \"status\": \"success\", \"tier\": $json.tier, \"email\": $json.email } }}",
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "id": "290d3394-d57f-4ac8-b072-44d7eead3f0c",
+      "name": "Respond Success",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        528,
+        208
+      ]
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Analyze this sales lead and determine their purchase intent.\n\nLead details:\n\nName: {{$json.name}}\nEmail: {{$json.email}}\nPhone: {{$json.phone}}\nCompany: {{$json.company}}\nBudget: {{$json.budget}}\nSource: {{$json.source}}\n\nAnalyze the lead and provide:\n\n1. Intent Score from 1 to 10\n2. Intent Level: Low, Medium, or High\n3. A short explanation of the lead's potential\n\nReturn the result in JSON format only:\n\n{\n  \"intentScore\": number,\n  \"intentLevel\": \"Low | Medium | High\",\n  \"analysis\": \"short explanation\"\n}",
+        "hasOutputParser": true,
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        -1056,
+        112
+      ],
+      "id": "8c0af015-20d2-4556-8590-166d7941c2c7",
+      "name": "AI Agent"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1.1,
+      "position": [
+        -1056,
+        352
+      ],
+      "id": "9a6f59b4-2221-486e-aa8d-8f533f7fa36d",
+      "name": "Google Gemini Chat Model",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "Efn072XL0U6XAHF1",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "schemaType": "manual",
+        "inputSchema": "{\n  \"type\": \"object\",\n  \"properties\": {\n    \"intentScore\": {\n      \"type\": \"number\"\n    },\n    \"intentLevel\": {\n      \"type\": \"string\"\n    },\n    \"analysis\": {\n      \"type\": \"string\"\n    }\n  },\n  \"required\": [\n    \"intentScore\",\n    \"intentLevel\",\n    \"analysis\"\n  ]\n}"
+      },
+      "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
+      "typeVersion": 1.3,
+      "position": [
+        -912,
+        352
+      ],
+      "id": "1672a0c1-d74f-42c1-9ad6-be8974a9016d",
+      "name": "Structured Output Parser"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Lead Capture Webhook": {
+      "main": [
+        [
+          {
+            "node": "Validate & Clean Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate & Clean Data": {
+      "main": [
+        [
+          {
+            "node": "Is Valid?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is Valid?": {
+      "main": [
+        [
+          {
+            "node": "Lookup Existing Lead",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond Invalid",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Lookup Existing Lead": {
+      "main": [
+        [
+          {
+            "node": "Check Duplicate",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Duplicate": {
+      "main": [
+        [
+          {
+            "node": "Is Duplicate?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is Duplicate?": {
+      "main": [
+        [
+          {
+            "node": "Respond Duplicate",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Classify Lead Tier": {
+      "main": [
+        [
+          {
+            "node": "Append to Master Log",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Append to Master Log": {
+      "main": [
+        [
+          {
+            "node": "Is Hot Lead?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is Hot Lead?": {
+      "main": [
+        [
+          {
+            "node": "Send Email to Sales",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Is Warm Lead?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Email to Sales": {
+      "main": [
+        [
+          {
+            "node": "Slack Notify Sales",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Slack Notify Sales": {
+      "main": [
+        [
+          {
+            "node": "Respond Success",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is Warm Lead?": {
+      "main": [
+        [
+          {
+            "node": "Append to Follow-up Queue",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Append to Archive",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Append to Follow-up Queue": {
+      "main": [
+        [
+          {
+            "node": "Respond Success",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Append to Archive": {
+      "main": [
+        [
+          {
+            "node": "Respond Success",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent": {
+      "main": [
+        [
+          {
+            "node": "Classify Lead Tier",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Gemini Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Structured Output Parser": {
+      "ai_outputParser": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_outputParser",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false
+  },
+  "versionId": "0ddfd941-7c11-4f2c-8e00-852c1fa052c5",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "1a694d97f7748fa7579134e52bd4c9227ede306a5bbf265c40425a60038a7bef"
+  },
+  "nodeGroups": [],
+  "id": "R3nAE6LeJwx5hnWD",
+  "tags": []
+}

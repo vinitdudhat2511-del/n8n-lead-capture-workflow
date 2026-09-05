@@ -1,0 +1,144 @@
+{
+  "name": "Daily Lead Summary Report",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 9 * * *"
+            }
+          ]
+        }
+      },
+      "id": "133c8099-c3fb-42cc-b566-022584309610",
+      "name": "Every Day 9AM",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "1f4wfcAWnOzTPdQPfmN6x5wfRV_oqoW5fW_vcjVc4zqs",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Leads Master Log",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1f4wfcAWnOzTPdQPfmN6x5wfRV_oqoW5fW_vcjVc4zqs/edit#gid=0"
+        },
+        "options": {}
+      },
+      "id": "0b955f36-ae39-4698-ab5e-8885f41f7231",
+      "name": "Read Master Log",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        240,
+        0
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "g8JBUjsXc1wTuKMP",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const rows = $input.all().map(i => i.json);\n\nconst today = new Date().toISOString().slice(0, 10);\nconst todaysRows = rows.filter(r => (r.Timestamp || '').toString().slice(0, 10) === today);\n\nconst counts = { Hot: 0, Warm: 0, Cold: 0 };\nfor (const r of todaysRows) {\n  if (counts[r.Tier] !== undefined) counts[r.Tier]++;\n}\n\nconst summaryText = `Daily Lead Summary — ${today}\\n\\nTotal new leads: ${todaysRows.length}\\nHot: ${counts.Hot}\\nWarm: ${counts.Warm}\\nCold: ${counts.Cold}`;\n\nreturn [{ json: { date: today, total: todaysRows.length, ...counts, summaryText } }];"
+      },
+      "id": "2f97d0f5-0efc-4809-a7c5-2eef92aead5a",
+      "name": "Aggregate Counts",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        480,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "fromEmail": "v9038230@gmail.com",
+        "toEmail": "v9038230@gmail.com",
+        "subject": "=Daily Lead Summary — {{$json.date}}",
+        "emailFormat": "text",
+        "text": "={{$json.summaryText}}",
+        "options": {}
+      },
+      "id": "59c26f1e-b10d-4024-b2cb-11e3f99876c8",
+      "name": "Email Daily Summary",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [
+        720,
+        0
+      ],
+      "webhookId": "ec9e9b36-7e27-443c-8289-0c1cd61a7013",
+      "credentials": {
+        "smtp": {
+          "id": "k4F5QtTdcRwXorbm",
+          "name": "SMTP account"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Every Day 9AM": {
+      "main": [
+        [
+          {
+            "node": "Read Master Log",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Master Log": {
+      "main": [
+        [
+          {
+            "node": "Aggregate Counts",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Aggregate Counts": {
+      "main": [
+        [
+          {
+            "node": "Email Daily Summary",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false
+  },
+  "versionId": "871d1b45-71e7-458b-aad1-fa91ee5ad3bb",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "1a694d97f7748fa7579134e52bd4c9227ede306a5bbf265c40425a60038a7bef"
+  },
+  "nodeGroups": [],
+  "id": "VWrJoRvOtssxsm9m",
+  "tags": []
+}
