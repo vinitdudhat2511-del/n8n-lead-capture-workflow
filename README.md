@@ -1,4 +1,4 @@
-# Assignment 10: End-to-End Lead Capture and Qualification Workflow
+End-to-End Lead Capture and Qualification Workflow
 
 ## Project Overview
 
@@ -8,7 +8,7 @@ The project also includes a separate **Daily Lead Summary Report** workflow that
 
 ---
 
-## Assignment Objectives
+## Project Objectives
 
 The workflows are designed to meet the following objectives:
 
